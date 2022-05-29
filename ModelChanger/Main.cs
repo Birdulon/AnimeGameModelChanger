@@ -10,19 +10,21 @@ namespace ModelChanger
 {
     public class Model
     {
-        //public GameObject gliderRoot;
-        //public GameObject eyeR;
-        //public GameObject eyeL;
-        //public GameObject toothD;
-        //public GameObject toothU;
-        //public GameObject npcAvatarModelParent;
-        //public GameObject npcBodyParent;
+        public GameObject avatar;
+        public GameObject body;
+        public GameObject modelParent;
+        public Animator animator;
 
         public GameObject weaponRoot;
         public GameObject weaponL;
         public GameObject weaponR;
         public GameObject headBone;
+        public GameObject eyeR;
+        public GameObject eyeL;
+        public GameObject toothD;
+        public GameObject toothU;
         public GameObject glider;
+        public GameObject gliderRoot;  // Used for retexturing
         public List<GameObject> bodyParts = new();
     }
 
@@ -42,39 +44,22 @@ namespace ModelChanger
         #region Properties
 
         private Model _clipboard;
+        private Model _activeAvatar;
         private GameObject _avatarRoot;
         private GameObject _npcRoot;
         private GameObject _monsterRoot;
-        private GameObject _activeAvatar;
-        private GameObject _activeAvatarBody;
-        private GameObject _activeAvatarModelParent;
-        private GameObject _prevAvatarModelParent;
-        private GameObject _gliderRoot;
-        private GameObject _weaponRoot;
-        private GameObject _weaponL;
-        private GameObject _weaponR;
-        private GameObject _eyeR;
-        private GameObject _eyeL;
-        private GameObject _toothD;
-        private GameObject _toothU;
-        private GameObject _glider;
         private GameObject _npcBodyParent;
         public static GameObject EntityBip;
         private List<GameObject> _searchResults = new List<GameObject>();
-        private List<GameObject> _npcContainer = new List<GameObject>();
         private string _avatarSearch;
         private string _npcType;
         private string[] _files;
         private string _filePath = Path.Combine(Application.dataPath, "tex_test");
-        private byte[] _fileData;
-        private Texture2D _tex;
-        private Animator _activeAvatarAnimator;
         private bool _showMainPanel;
         private bool _showAvatarPanel;
         private bool _showGliderPanel;
         private int _avatarTexIndex;
         private int _gliderTexIndex;
-        private Vector3 _npcOffset;
 
         private Rect _mainRect = new Rect(200, 250, 150, 100);
         private Rect _avatarRect = new Rect(370, 250, 200, 100);
@@ -202,13 +187,13 @@ namespace ModelChanger
             if (_showMainPanel)
             {
                 Focused = false;
-                if (_activeAvatarAnimator)
-                    _activeAvatarAnimator.isAnimationPaused = true;
+                if (_activeAvatar.animator)
+                    _activeAvatar.animator.isAnimationPaused = true;
             }
             else
             {
-                if (_activeAvatarAnimator)
-                    _activeAvatarAnimator.isAnimationPaused = false;
+                if (_activeAvatar.animator)
+                    _activeAvatar.animator.isAnimationPaused = false;
             }
 
             if (_avatarRoot is null)
@@ -223,7 +208,7 @@ namespace ModelChanger
             {
                 if (_activeAvatar is null)
                     FindActiveAvatar();
-                if (!_activeAvatar.activeInHierarchy)
+                if (!_activeAvatar.avatar.activeInHierarchy)
                     FindActiveAvatar();
             }
             catch
@@ -231,39 +216,29 @@ namespace ModelChanger
             }
 
             _searchResults = _searchResults.Where(item => item is not null).ToList();
-            _npcContainer = _npcContainer.Where(item => item is not null).ToList();
 
-            if (_npcContainer is null) return;
-            foreach (var entity in _npcContainer)
+            if ((_npcBodyParent is not null) && (_activeAvatar is not null))
             {
-                if (entity is null) continue;
-                entity.transform.position = _activeAvatar.transform.position + new Vector3(5, 0, 0);
+                _npcBodyParent.transform.position = _npcBodyParent.transform.parent.transform.position;
             }
-
-            //Rin
-            if (_npcBodyParent is not null)
-            {
-                GetNpcOffset();
-                _npcBodyParent.transform.position = _activeAvatarBody.transform.position + _npcOffset;
-            }
-            //Rin
         }
 
         #region MainFunctions
 
         private void CutAvatarBody()
         {
+            Model source = _activeAvatar;
             Model clipboard = new();
 
-            _prevAvatarModelParent = _activeAvatarModelParent;
-            foreach (var o in _activeAvatarModelParent.transform)
+            clipboard.modelParent = source.modelParent;
+            foreach (var o in source.modelParent.transform)
             {
                 var bodypart = o.Cast<Transform>();
                 clipboard.bodyParts.Add(bodypart.gameObject);
-                Loader.Msg($"Added {bodypart.name} of {_activeAvatarModelParent.transform.name} to the list.");
+                Loader.Msg($"Added {bodypart.name} of {source.modelParent.transform.name} to the list.");
             }
 
-            foreach (var o in _activeAvatarModelParent.GetComponentsInChildren<Transform>())
+            foreach (var o in source.modelParent.GetComponentsInChildren<Transform>())
             {
                 // Loader.Msg($"Found {o.gameObject.name}.");
                 Loader.Msg($"Found {o.name}.");
@@ -295,12 +270,11 @@ namespace ModelChanger
         private void PasteAvatarBody()
         {
             Model source = _clipboard;
-            var activeAvatarAnimator = _activeAvatarModelParent.GetComponent<Animator>();
-            Loader.Msg($"Animator_Load in {_activeAvatarModelParent}.");
-            var prevAvatarAnimator = _prevAvatarModelParent.GetComponent<Animator>();
-            Loader.Msg($"Animator_Load in {prevAvatarAnimator}.");
+            Model dest = _activeAvatar;
+            dest.animator = dest.modelParent.GetComponent<Animator>();
+            source.animator = source.modelParent.GetComponent<Animator>();
 
-            DestroyModelTransform(_activeAvatarModelParent.transform);
+            DestroyModelChildren(_activeAvatar.modelParent);
 
             foreach (var part in source.bodyParts)
             {
@@ -337,39 +311,39 @@ namespace ModelChanger
             }
             foreach (var part in source.bodyParts)
             {
-                part.transform.parent = _activeAvatarModelParent.transform;
-                part.transform.parentInternal = _activeAvatarModelParent.transform;
+                part.transform.parent = dest.modelParent.transform;
+                part.transform.parentInternal = dest.modelParent.transform;
                 part.transform.SetSiblingIndex(0);
-                Loader.Msg($"{part.name} moved to {_activeAvatarModelParent.name}");
+                Loader.Msg($"{part.name} moved to {dest.modelParent.name}");
             }
 
-            activeAvatarAnimator.avatar = prevAvatarAnimator.avatar;
-            prevAvatarAnimator.avatar = null;
+            dest.animator.avatar = source.animator.avatar;
+            source.animator.avatar = null;
 
-            _weaponRoot.transform.parent = source.weaponRoot.transform;
-            _weaponL.transform.parent = source.weaponL.transform;
-            _weaponR.transform.parent = source.weaponR.transform;
-            _weaponRoot.transform.SetSiblingIndex(0);
-            _weaponL.transform.SetSiblingIndex(0);
-            _weaponR.transform.SetSiblingIndex(0);
+            dest.weaponRoot.transform.parent = source.weaponRoot.transform;
+            dest.weaponL.transform.parent = source.weaponL.transform;
+            dest.weaponR.transform.parent = source.weaponR.transform;
+            dest.weaponRoot.transform.SetSiblingIndex(0);
+            dest.weaponL.transform.SetSiblingIndex(0);
+            dest.weaponR.transform.SetSiblingIndex(0);
 
-            SetClip(_prevAvatarModelParent, _activeAvatarModelParent);
-            SetEyeKey(_prevAvatarModelParent, _activeAvatarModelParent);
+            SetClip(source.modelParent, dest.modelParent);
+            SetEyeKey(source.modelParent, dest.modelParent);
 
-            _eyeL.transform.parent = source.headBone.transform;
-            _eyeR.transform.parent = source.headBone.transform;
-            _toothD.transform.parent = source.headBone.transform;
-            _toothU.transform.parent = source.headBone.transform;
-            _glider.transform.parent = source.glider.transform;
-            _eyeL.transform.SetSiblingIndex(0);
-            _eyeR.transform.SetSiblingIndex(0);
-            _toothD.transform.SetSiblingIndex(0);
-            _toothU.transform.SetSiblingIndex(0);
-            _glider.transform.SetSiblingIndex(0);
+            dest.eyeL.transform.parent = source.headBone.transform;
+            dest.eyeR.transform.parent = source.headBone.transform;
+            dest.toothD.transform.parent = source.headBone.transform;
+            dest.toothU.transform.parent = source.headBone.transform;
+            dest.glider.transform.parent = source.glider.transform;
+            dest.eyeL.transform.SetSiblingIndex(0);
+            dest.eyeR.transform.SetSiblingIndex(0);
+            dest.toothD.transform.SetSiblingIndex(0);
+            dest.toothU.transform.SetSiblingIndex(0);
+            dest.glider.transform.SetSiblingIndex(0);
 
-            _activeAvatar.SetActive(false);
-            _activeAvatar.SetActive(true);
-            _activeAvatarBody.SetActive(false);
+            dest.avatar.SetActive(false);
+            dest.avatar.SetActive(true);
+            dest.body.SetActive(false);
         }
 
         private void SearchObjects()
@@ -393,10 +367,8 @@ namespace ModelChanger
             return output;
         }
 
-        //by Rin
         private void NpcAvatarChanger(GameObject searchResult)
         {
-            Model source = new();
             GameObject _npcAvatarModelParent = null;
             foreach (var a in searchResult.GetComponentsInChildren<Transform>())
             {
@@ -405,16 +377,17 @@ namespace ModelChanger
                     _npcAvatarModelParent = a.GetChild(0).gameObject;
                     Loader.Msg($"{_npcAvatarModelParent.transform.name}");
                 }
-
                 if (a.name.Contains("Body"))
                 {
                     _npcAvatarModelParent = a.gameObject.transform.parent.gameObject;
                     Loader.Msg($"{_npcAvatarModelParent.transform.name}");
                 }
             }
-            if (_npcAvatarModelParent is null) {
-                return;
-            }
+            if (_npcAvatarModelParent is null) return;
+
+            Model source = new();
+            Model dest = _activeAvatar;
+
             foreach (var o in _npcAvatarModelParent.transform)
             {
                 var npcBodypart = o.Cast<Transform>();
@@ -422,29 +395,29 @@ namespace ModelChanger
                 Loader.Msg($"Added {npcBodypart.name} of {_npcAvatarModelParent.transform.name} to the list.");
             }
 
-            var activeAvatarAnimator = _activeAvatarModelParent.GetComponent<Animator>();
-            var npcAnimator = _npcAvatarModelParent.GetComponent<Animator>();
+            var activeAvatarAnimator = dest.modelParent.GetComponent<Animator>();
+            source.animator = _npcAvatarModelParent.GetComponent<Animator>();
             Loader.Msg($"Animator_Load in {_npcAvatarModelParent}.");
 
-            var npcBodyParent = _npcAvatarModelParent.gameObject;
-            while (npcBodyParent.transform.parent.transform.parent.gameObject.name != "EntityRoot")
+            source.modelParent = _npcAvatarModelParent.gameObject;
+            while (source.modelParent.transform.parent.transform.parent.gameObject.name != "EntityRoot")
             {
-                npcBodyParent = npcBodyParent.transform.parent.gameObject;
+                source.modelParent = source.modelParent.transform.parent.gameObject;
             }
             
-            var activeCharacterBodyParent = _activeAvatarBody.gameObject;
+            var activeCharacterBodyParent = dest.body.gameObject;
             while (activeCharacterBodyParent.transform.parent.transform.parent.gameObject.name != "EntityRoot")
             {
                 activeCharacterBodyParent = activeCharacterBodyParent.transform.parent.gameObject;
             }
 
-            Loader.Msg($"{npcBodyParent.name}");
+            Loader.Msg($"{source.modelParent.name}");
             Loader.Msg($"{activeCharacterBodyParent.name}");
-            if (npcBodyParent.transform.parent.gameObject.name == "MonsterRoot")
+            if (source.modelParent.transform.parent.gameObject.name == "MonsterRoot")
                 _npcType = "Monster";
-            else if (npcBodyParent.transform.parent.gameObject.name == "AvatarRoot")
+            else if (source.modelParent.transform.parent.gameObject.name == "AvatarRoot")
                 _npcType = "Avatar";
-            else if (npcBodyParent.transform.parent.gameObject.name == "NPCRoot")
+            else if (source.modelParent.transform.parent.gameObject.name == "NPCRoot")
                 _npcType = "Npc";
             else
                 _npcType = "null";
@@ -482,9 +455,9 @@ namespace ModelChanger
                 }
             }
 
-            DestroyModelTransform(_activeAvatarModelParent.transform);
+            DestroyModelChildren(dest.modelParent);
             
-            foreach (var a in _activeAvatarModelParent.GetComponentsInChildren<Transform>())
+            foreach (var a in dest.modelParent.GetComponentsInChildren<Transform>())
             {
                 if (a.name == "+FlycloakRootB CB A01")
                     a.gameObject.SetActive(false);
@@ -492,82 +465,71 @@ namespace ModelChanger
 
             foreach (var part in source.bodyParts)
             {
-                part.transform.parent = _activeAvatarModelParent.transform;
-                part.transform.parentInternal = _activeAvatarModelParent.transform;
+                part.transform.parent = dest.modelParent.transform;
+                part.transform.parentInternal = dest.modelParent.transform;
                 part.transform.SetSiblingIndex(0);
-                Loader.Msg($"Moved {part.name} to {_activeAvatarModelParent.name}");
+                Loader.Msg($"Moved {part.name} to {dest.modelParent.name}");
             }
 
-            _weaponRoot.transform.parent = source.weaponRoot.transform;
-            _weaponL.transform.parent = source.weaponL.transform;
-            _weaponR.transform.parent = source.weaponR.transform;
-            _weaponRoot.transform.SetSiblingIndex(0);
-            _weaponL.transform.SetSiblingIndex(0);
-            _weaponR.transform.SetSiblingIndex(0);
+            dest.weaponRoot.transform.parent = source.weaponRoot.transform;
+            dest.weaponL.transform.parent = source.weaponL.transform;
+            dest.weaponR.transform.parent = source.weaponR.transform;
+            dest.weaponRoot.transform.SetSiblingIndex(0);
+            dest.weaponL.transform.SetSiblingIndex(0);
+            dest.weaponR.transform.SetSiblingIndex(0);
 
             if (_npcType == "Monster")
             {
                 _npcAvatarModelParent.GetComponent<Behaviour>().enabled = false;
-                npcBodyParent.GetComponent<Rigidbody>().collisionDetectionMode =
+                source.modelParent.GetComponent<Rigidbody>().collisionDetectionMode =
                     CollisionDetectionMode.ContinuousDynamic;
-                npcAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-                activeAvatarAnimator.avatar = npcAnimator.avatar;
-                npcAnimator.avatar = null;
-                npcAnimator.runtimeAnimatorController = null;
-                npcAnimator.runtimeAnimatorController = activeAvatarAnimator.runtimeAnimatorController;
-                npcBodyParent.transform.Find("Collider").gameObject.SetActive(false);
-                npcBodyParent.transform.parent = _activeAvatarModelParent.transform.parent;
-                npcBodyParent.transform.parentInternal = _activeAvatarModelParent.transform.parent;
-                npcAnimator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
-                _npcBodyParent = npcBodyParent;
+                source.animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                activeAvatarAnimator.avatar = source.animator.avatar;
+                source.animator.avatar = null;
+                source.animator.runtimeAnimatorController = null;
+                source.animator.runtimeAnimatorController = activeAvatarAnimator.runtimeAnimatorController;
+                source.modelParent.transform.Find("Collider").gameObject.SetActive(false);
+                source.modelParent.transform.parent = dest.modelParent.transform.parent;
+                source.modelParent.transform.parentInternal = dest.modelParent.transform.parent;
+                source.animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
             }
-
-            if (_npcType == "Npc")
+            else if (_npcType == "Npc")
             {
-                activeAvatarAnimator.avatar = npcAnimator.avatar;
-                npcAnimator.avatar = null;
-                npcAnimator.gameObject.SetActive(false);
-                npcAnimator.runtimeAnimatorController = activeAvatarAnimator.runtimeAnimatorController;
-                searchResult.transform.position = _activeAvatarModelParent.transform.position;
-                Destroy(npcBodyParent.GetComponent<Rigidbody>());
-                npcBodyParent.transform.Find("Collider").gameObject.SetActive(false);
-                npcBodyParent.transform.parent = _activeAvatarModelParent.transform.parent;
-                npcBodyParent.transform.parentInternal = _activeAvatarModelParent.transform.parent;
-                npcBodyParent.SetActive(false);
-                Destroy(npcBodyParent);
-                _npcBodyParent = npcBodyParent;
+                activeAvatarAnimator.avatar = source.animator.avatar;
+                source.animator.avatar = null;
+                source.animator.gameObject.SetActive(false);
+                source.animator.runtimeAnimatorController = activeAvatarAnimator.runtimeAnimatorController;
+                searchResult.transform.position = dest.modelParent.transform.position;
+                Destroy(source.modelParent.GetComponent<Rigidbody>());
+                source.modelParent.transform.Find("Collider").gameObject.SetActive(false);
+                source.modelParent.transform.parent = dest.modelParent.transform.parent;
+                source.modelParent.transform.parentInternal = dest.modelParent.transform.parent;
+                source.modelParent.SetActive(false);
+                Destroy(source.modelParent);
             }
-            
-            _activeAvatarBody.SetActive(false);
+            _npcBodyParent = source.modelParent;
+            _activeAvatar.body.SetActive(false);
         }
-        //by Rin
 
         private void ApplyAvatarTexture(string filePath)
         {
-            if (_activeAvatarBody is null) return;
-
-            _fileData = File.ReadAllBytes(filePath);
-            _tex = new Texture2D(1024, 1024);
-            ImageConversion.LoadImage(_tex, _fileData);
-            _activeAvatarBody.GetComponent<SkinnedMeshRenderer>().materials[_avatarTexIndex].mainTexture = _tex;
+            if (_activeAvatar.body is null) return;
+            var tex = LoadTexture(filePath);
+            _activeAvatar.body.GetComponent<SkinnedMeshRenderer>().materials[_avatarTexIndex].mainTexture = tex;
         }
 
         private void ApplyGliderTexture(string filePath)
         {
-            if (_gliderRoot is null) return;
-            var glider = _gliderRoot.transform.GetChild(0).gameObject;
+            if (_activeAvatar.gliderRoot is null) return;
+            var glider = _activeAvatar.gliderRoot.transform.GetChild(0).gameObject;
             Loader.Msg($"Found {glider.name}");
+            var tex = LoadTexture(filePath);
+
             glider.SetActive(true);
-
-            _fileData = File.ReadAllBytes(filePath);
-            _tex = new Texture2D(1024, 1024);
-            ImageConversion.LoadImage(_tex, _fileData);
-
             foreach (var renderer in glider.GetComponentsInChildren<SkinnedMeshRenderer>())
             {
-                renderer.materials[_gliderTexIndex].mainTexture = _tex;
+                renderer.materials[_gliderTexIndex].mainTexture = tex;
             }
-
             glider.SetActive(false);
         }
 
@@ -575,9 +537,17 @@ namespace ModelChanger
 
         #region HelperFunctions
 
-        private static void DestroyModelTransform(Transform transform)
+        private static Texture2D LoadTexture(string filePath)
         {
-            foreach (var a in transform)
+            byte[] fileData = File.ReadAllBytes(filePath);
+            Texture2D tex = new Texture2D(1024, 1024);
+            ImageConversion.LoadImage(tex, fileData);
+            return tex;
+        }
+
+        private static void DestroyModelChildren(GameObject model)
+        {
+            foreach (var a in model.transform)
             {
                 Transform bodypart = a.Cast<Transform>();
                 switch (bodypart.name)
@@ -665,11 +635,6 @@ namespace ModelChanger
             targetEyeKey.teethUpScale = originEyeKey.teethUpScale;
         }
 
-        private void GetNpcOffset()
-        {
-            _npcOffset = _npcBodyParent.transform.parent.transform.position - _activeAvatarBody.transform.position;
-        }
-
         private void FindActiveAvatar()
         {
             if (_avatarRoot.transform.childCount == 0) return;
@@ -677,67 +642,69 @@ namespace ModelChanger
             {
                 var active = a.Cast<Transform>();
                 if (!active.gameObject.activeInHierarchy) continue;
-                _activeAvatar = active.gameObject;
-                FindBody();
+                _activeAvatar = FromAvatar(active.gameObject);
             }
         }
 
-        private void FindBody()
+        private static Model FromAvatar(GameObject avatar)
         {
-            foreach (var a in _activeAvatar.GetComponentsInChildren<Transform>())
+            Model m = new();
+            m.avatar = avatar;
+            foreach (var a in avatar.GetComponentsInChildren<Transform>())
             {
                 switch (a.name)
                 {
                     case "Body":
-                        _activeAvatarBody = a.gameObject;
+                        m.body = a.gameObject;
                         break;
                     case "OffsetDummy":
-                        _activeAvatarModelParent = a.GetChild(0).gameObject;
-                        Loader.Msg($"{_activeAvatarModelParent.transform.name}");
-                        _activeAvatarAnimator = _activeAvatarModelParent.GetComponent<Animator>();
+                        m.modelParent = a.GetChild(0).gameObject;
+                        Loader.Msg($"{m.modelParent.transform.name}");
+                        m.animator = m.modelParent.GetComponent<Animator>();
                         break;
                     case "WeaponL":
-                        _weaponL = a.gameObject;
-                        Loader.Msg($"Found {_weaponL.name}");
+                        m.weaponL = a.gameObject;
+                        Loader.Msg($"Found {m.weaponL.name}");
                         break;
                     case "WeaponR":
-                        _weaponR = a.gameObject;
-                        Loader.Msg($"Found {_weaponR.name}");
+                        m.weaponR = a.gameObject;
+                        Loader.Msg($"Found {m.weaponR.name}");
                         break;
                     case "+EyeBone L A01":
-                        _eyeL = a.gameObject;
-                        Loader.Msg($"Found {_eyeL.name}");
+                        m.eyeL = a.gameObject;
+                        Loader.Msg($"Found {m.eyeL.name}");
                         break;
                     case "+EyeBone R A01":
-                        _eyeR = a.gameObject;
-                        Loader.Msg($"Found {_eyeR.name}");
+                        m.eyeR = a.gameObject;
+                        Loader.Msg($"Found {m.eyeR.name}");
                         break;
                     case "+ToothBone D A01":
-                        _toothD = a.gameObject;
-                        Loader.Msg($"Found {_toothD.name}");
+                        m.toothD = a.gameObject;
+                        Loader.Msg($"Found {m.toothD.name}");
                         break;
                     case "+ToothBone U A01":
-                        _toothU = a.gameObject;
-                        Loader.Msg($"Found {_toothU.name}");
+                        m.toothU = a.gameObject;
+                        Loader.Msg($"Found {m.toothU.name}");
                         break;
                     case "+FlycloakRootB CB A01":
-                        _glider = a.gameObject;
-                        Loader.Msg($"Found {_glider.name}");
+                        m.glider = a.gameObject;
+                        Loader.Msg($"Found {m.glider.name}");
                         break;
                 }
 
                 if (a.name.Contains("WeaponRoot"))
                 {
-                    _weaponRoot = a.gameObject;
-                    Loader.Msg($"Found {_weaponRoot.name}");
+                    m.weaponRoot = a.gameObject;
+                    Loader.Msg($"Found {m.weaponRoot.name}");
                 }
 
                 if (a.name.Contains("FlycloakRoot"))
                 {
-                    _gliderRoot = a.gameObject;
-                    Loader.Msg($"Found {_gliderRoot.name}");
+                    m.gliderRoot = a.gameObject;
+                    Loader.Msg($"Found {m.gliderRoot.name}");
                 }
             }
+            return m;
         }
 
         private static bool Focused
