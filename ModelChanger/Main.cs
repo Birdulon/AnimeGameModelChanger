@@ -45,9 +45,9 @@ namespace ModelChanger
 
         private Model _clipboard;
         private Model _activeAvatar;
-        private GameObject _avatarRoot;
-        private GameObject _npcRoot;
-        private GameObject _monsterRoot;
+        private GameObject avatarRoot;
+        private GameObject npcRoot;
+        private GameObject monsterRoot;
         private GameObject _npcBodyParent;
         public static GameObject EntityBip;
         private List<GameObject> _searchResults = new List<GameObject>();
@@ -179,47 +179,32 @@ namespace ModelChanger
             GUI.DragWindow();
         }
 
+        private bool UpdateRoots()
+        {
+            this.avatarRoot = GameObject.Find("/EntityRoot/AvatarRoot");
+            this.npcRoot = GameObject.Find("/EntityRoot/NPCRoot");
+            this.monsterRoot = GameObject.Find("/EntityRoot/MonsterRoot");
+            return ((this.avatarRoot != null) && (this.npcRoot != null) && (this.monsterRoot != null));
+        }
+
         public void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F12))
+            if (Input.GetKeyDown(KeyCode.F12)){
                 _showMainPanel = !_showMainPanel;
-
+                Loader.Msg("Toggling main panel.");}
             if (_showMainPanel)
-            {
                 Focused = false;
-                if (_activeAvatar.animator)
-                    _activeAvatar.animator.isAnimationPaused = true;
-            }
-            else
-            {
-                if (_activeAvatar.animator)
-                    _activeAvatar.animator.isAnimationPaused = false;
-            }
+            if (!UpdateRoots()) return;
+            if (!FindActiveAvatar()) return;
+            if (!_activeAvatar.avatar.activeInHierarchy) FindActiveAvatar();
 
-            if (_avatarRoot is null)
-                _avatarRoot = GameObject.Find("/EntityRoot/AvatarRoot");
-            if (_npcRoot is null)
-                _npcRoot = GameObject.Find("/EntityRoot/NPCRoot");
-            if (_monsterRoot is null)
-                _monsterRoot = GameObject.Find("/EntityRoot/MonsterRoot");
-
-            if (!_avatarRoot) return;
-            try
-            {
-                if (_activeAvatar is null)
-                    FindActiveAvatar();
-                if (!_activeAvatar.avatar.activeInHierarchy)
-                    FindActiveAvatar();
-            }
-            catch
-            {
-            }
+            if (_activeAvatar.animator is not null)
+                _activeAvatar.animator.isAnimationPaused = _showMainPanel;
 
             _searchResults = _searchResults.Where(item => item is not null).ToList();
-
-            if ((_npcBodyParent is not null) && (_activeAvatar is not null))
+            if ((this._npcBodyParent is not null) && (_activeAvatar is not null))
             {
-                _npcBodyParent.transform.position = _npcBodyParent.transform.parent.transform.position;
+                this._npcBodyParent.transform.position = this._npcBodyParent.transform.parent.transform.position;
             }
         }
 
@@ -284,20 +269,12 @@ namespace ModelChanger
                     switch (bone.name)
                     {
                         case "WeaponL":
-                            Destroy(bone.gameObject);
-                            break;
                         case "WeaponR":
                             Destroy(bone.gameObject);
                             break;
                         case "+EyeBone L A01":
-                            bone.gameObject.SetActive(false);
-                            break;
                         case "+EyeBone R A01":
-                            bone.gameObject.SetActive(false);
-                            break;
                         case "+ToothBone D A01":
-                            bone.gameObject.SetActive(false);
-                            break;
                         case "+ToothBone U A01":
                             bone.gameObject.SetActive(false);
                             break;
@@ -348,8 +325,8 @@ namespace ModelChanger
 
         private void SearchObjects()
         {
-            _searchResults = GetTransformChildren(_monsterRoot);
-            _searchResults.AddRange(GetTransformChildren(_npcRoot));
+            _searchResults = GetTransformChildren(this.monsterRoot);
+            _searchResults.AddRange(GetTransformChildren(this.npcRoot));
         }
 
         private List<GameObject> GetTransformChildren(GameObject parent)
@@ -442,8 +419,6 @@ namespace ModelChanger
                         Loader.Msg($"Found {source.weaponR.name}");
                         break;
                     case "WeaponL":
-                        o.gameObject.SetActive(false);
-                        break;
                     case "WeaponR":
                         o.gameObject.SetActive(false);
                         break;
@@ -507,8 +482,8 @@ namespace ModelChanger
                 source.modelParent.SetActive(false);
                 Destroy(source.modelParent);
             }
-            _npcBodyParent = source.modelParent;
-            _activeAvatar.body.SetActive(false);
+            this._npcBodyParent = source.modelParent;
+            dest.body.SetActive(false);
         }
 
         private void ApplyAvatarTexture(string filePath)
@@ -553,13 +528,7 @@ namespace ModelChanger
                 switch (bodypart.name)
                 {
                     case "Brow":
-                        Destroy(bodypart.gameObject);
-                        Loader.Msg($"Destroyed {bodypart.name}");
-                        break;
                     case "Face":
-                        Destroy(bodypart.gameObject);
-                        Loader.Msg($"Destroyed {bodypart.name}");
-                        break;
                     case "Face_Eye":
                         Destroy(bodypart.gameObject);
                         Loader.Msg($"Destroyed {bodypart.name}");
@@ -635,15 +604,17 @@ namespace ModelChanger
             targetEyeKey.teethUpScale = originEyeKey.teethUpScale;
         }
 
-        private void FindActiveAvatar()
+        private bool FindActiveAvatar()
         {
-            if (_avatarRoot.transform.childCount == 0) return;
-            foreach (var a in _avatarRoot.transform)
+            this._activeAvatar = null;
+            if (this.avatarRoot.transform.childCount == 0) return false;
+            foreach (var a in this.avatarRoot.transform)
             {
                 var active = a.Cast<Transform>();
                 if (!active.gameObject.activeInHierarchy) continue;
-                _activeAvatar = FromAvatar(active.gameObject);
+                this._activeAvatar = FromAvatar(active.gameObject);
             }
+            return (this._activeAvatar is not null);
         }
 
         private static Model FromAvatar(GameObject avatar)
