@@ -13,14 +13,36 @@
                 "/consoleloggerparameters:NoSummary",
                 "/p:Configuration=Release"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "group": "build",
             "presentation": {
                 "reveal": "silent"
             },
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "copy ModelChanger.dll",
+            "command": "scp",
+            "args": [
+                "-P 2200",
+                "ModelChanger/bin/Release/ModelChanger.dll",
+                "fridge-q:/share/Games/"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/"
+            }
+        },
+        {
+            "label": "Build and Push",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "build release",
+                "copy ModelChanger.dll"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
