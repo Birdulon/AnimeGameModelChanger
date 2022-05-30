@@ -8,6 +8,15 @@ using miHoYoEmotion;
 
 namespace ModelChanger
 {
+    public enum ModelSource
+    {
+        None,
+        Unknown,
+        Avatar,
+        NPC,
+        Monster
+    }
+
     public class Model
     {
         public GameObject avatar;
@@ -50,9 +59,9 @@ namespace ModelChanger
         private GameObject monsterRoot;
         private GameObject _npcBodyParent;
         public static GameObject EntityBip;
-        private List<GameObject> _searchResults = new List<GameObject>();
+        private List<GameObject> _searchResults = new();
         private string _avatarSearch;
-        private string _npcType;
+        private ModelSource _npcType = ModelSource.None;
         private string[] _files;
         private string _filePath = Path.Combine(Application.dataPath, "tex_test");
         private bool _showMainPanel;
@@ -61,9 +70,9 @@ namespace ModelChanger
         private int _avatarTexIndex;
         private int _gliderTexIndex;
 
-        private Rect _mainRect = new Rect(200, 250, 150, 100);
-        private Rect _avatarRect = new Rect(370, 250, 200, 100);
-        private Rect _gliderRect = new Rect(590, 250, 200, 100);
+        private Rect _mainRect = new(200, 250, 150, 100);
+        private Rect _avatarRect = new(370, 250, 200, 100);
+        private Rect _gliderRect = new(590, 250, 200, 100);
         private GUILayoutOption[] _buttonSize;
 
         #endregion
@@ -213,9 +222,7 @@ namespace ModelChanger
         private void CutAvatarBody()
         {
             Model source = _activeAvatar;
-            Model clipboard = new();
-
-            clipboard.modelParent = source.modelParent;
+            Model clipboard = new(){modelParent = source.modelParent};
             foreach (var o in source.modelParent.transform)
             {
                 var bodypart = o.Cast<Transform>();
@@ -390,14 +397,13 @@ namespace ModelChanger
 
             Loader.Msg($"{source.modelParent.name}");
             Loader.Msg($"{activeCharacterBodyParent.name}");
-            if (source.modelParent.transform.parent.gameObject.name == "MonsterRoot")
-                _npcType = "Monster";
-            else if (source.modelParent.transform.parent.gameObject.name == "AvatarRoot")
-                _npcType = "Avatar";
-            else if (source.modelParent.transform.parent.gameObject.name == "NPCRoot")
-                _npcType = "Npc";
-            else
-                _npcType = "null";
+            _npcType = source.modelParent.transform.parent.gameObject.name switch
+            {
+                "AvatarRoot" => ModelSource.Avatar,
+                "MonsterRoot" => ModelSource.Monster,
+                "NPCRoot" => ModelSource.NPC,
+                _ => ModelSource.Unknown
+            };
 
             foreach (var o in _npcAvatarModelParent.GetComponentsInChildren<Transform>())
             {
@@ -453,7 +459,7 @@ namespace ModelChanger
             dest.weaponL.transform.SetSiblingIndex(0);
             dest.weaponR.transform.SetSiblingIndex(0);
 
-            if (_npcType == "Monster")
+            if (_npcType == ModelSource.Monster)
             {
                 _npcAvatarModelParent.GetComponent<Behaviour>().enabled = false;
                 source.modelParent.GetComponent<Rigidbody>().collisionDetectionMode =
@@ -468,7 +474,7 @@ namespace ModelChanger
                 source.modelParent.transform.parentInternal = dest.modelParent.transform.parent;
                 source.animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
             }
-            else if (_npcType == "Npc")
+            else if (_npcType == ModelSource.NPC)
             {
                 activeAvatarAnimator.avatar = source.animator.avatar;
                 source.animator.avatar = null;
@@ -515,7 +521,7 @@ namespace ModelChanger
         private static Texture2D LoadTexture(string filePath)
         {
             byte[] fileData = File.ReadAllBytes(filePath);
-            Texture2D tex = new Texture2D(1024, 1024);
+            Texture2D tex = new(1024, 1024);
             ImageConversion.LoadImage(tex, fileData);
             return tex;
         }
@@ -619,8 +625,7 @@ namespace ModelChanger
 
         private static Model FromAvatar(GameObject avatar)
         {
-            Model m = new();
-            m.avatar = avatar;
+            Model m = new(){avatar = avatar};
             foreach (var a in avatar.GetComponentsInChildren<Transform>())
             {
                 switch (a.name)
