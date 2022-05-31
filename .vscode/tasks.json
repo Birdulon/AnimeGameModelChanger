@@ -32,9 +32,17 @@
             }
         },
         {
+            "label": "run prebuild.sh",
+            "command": "./prebuild.sh",
+            "options": {
+                "cwd": "${workspaceFolder}/"
+            }
+        },
+        {
             "label": "Build and Push",
             "dependsOrder": "sequence",
             "dependsOn": [
+                "run prebuild.sh",
                 "build release",
                 "copy ModelChanger.dll"
             ],

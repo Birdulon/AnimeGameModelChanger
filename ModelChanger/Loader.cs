@@ -2,6 +2,7 @@
 using MelonLoader;
 using UnhollowerRuntimeLib;
 using UnityEngine;
+using static Constants.Const;
 
 namespace ModelChanger
 {
@@ -11,7 +12,7 @@ namespace ModelChanger
         public const string Description = null;
         public const string Author = "portra";
         public const string Company = null;
-        public const string Version = "0.0.8";
+        public const string Version = GitVersion;
         public const string DownloadLink = null;
     }
     public class Loader : MelonMod
